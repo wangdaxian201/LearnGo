@@ -20,6 +20,11 @@ func f1(ch1 chan<- int) {
 
 func f2(ch1 <-chan int, ch2 chan<- int) {
 	defer wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("recover inner panic:%v\n", r)
+		}
+	}()
 	for {
 		x, ok := <-ch1
 		if ok {
@@ -45,6 +50,11 @@ func f2(ch1 <-chan int, ch2 chan<- int) {
 func main() {
 	// 有时会出现一个panic, send on closed channel
 	// 重启几次就会好
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("recover outer panic:%v\n", r)
+		}
+	}()
 	a := make(chan int, 100)
 	b := make(chan int, 100)
 	//ctx, cancel := context.WithCancel(context.TODO())
@@ -56,5 +66,6 @@ func main() {
 	for res := range b {
 		fmt.Println(res)
 	}
+	fmt.Println("exit")
 	//time.Sleep(3 * time.Second)
 }
