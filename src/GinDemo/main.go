@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 )
 
 type User struct {
@@ -30,19 +35,50 @@ func JsonDemo(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
-		"message": `the body should be User`,
+		"message": `the body should be User aaaa`,
 	})
 }
 
 func main() {
 	fmt.Println("learn gin....")
-	r := gin.Default()
-	r.GET("/ping", Ping)
-	r.POST("/JsonDemo", JsonDemo)
+	// 强制日志颜色化
+	gin.ForceConsoleColor()
+	gin.SetMode("debug")
+	router := gin.Default()
 	// router group
+	router.GET("/ping", Ping)
+	v1 := router.Group("/v1")
+	{
+		v1.POST("/JsonDemo", JsonDemo)
+	}
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
 
-	err := r.Run()
-	if err != nil {
-		return
-	} // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	go func() {
+		// 服务连接
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	// 等待中断信号以优雅地关闭服务器（设置 5 秒的超时时间）
+	quit := make(chan os.Signal)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	log.Println("Shutdown Server ...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server Shutdown:", err)
+	}
+	log.Println("Server exiting")
+	// 不能热重载的run
+	//err := r.Run(":8080")
+	//if err != nil {
+	//	_ = fmt.Errorf("server error: %v", err)
+	//	return
+	//} // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
